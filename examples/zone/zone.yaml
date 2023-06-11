@@ -1,0 +1,32 @@
+# all TSIG keys get access to AXFR & RFC2136 (dyndns) on all zones (pending permissions model)
+tsig_keys:
+  local_cluster: <a base64 key>
+# `soa` and `nameservers` can also be set in individual subzones. These will get inherited down as SOA and NS records otherwise
+soa:
+  mname: ns1.example.com
+  rname: admin.example.com
+  serial: 1
+  refresh: 3600
+  retry: 10
+  expire: 3600
+  minimum: 60
+nameservers:
+- ns1.example.com # points to ourself
+
+# defaults to `false`. if `true`, then MD5 HMAC can be used for TSIG authentication. necessary for some legacy tooling, but insecure.
+allow_md5_tsig: false
+# defaults to `true`.
+authoritative: true
+
+# you can have records at the top level master zone (here), but it's advised to put everything in zones.
+zones:
+  # an empty zone to enable AXFR. RFC2136 is configured in adns to be able to create new subzones, but you cannot run AXFR on an undefined zone
+  example-2.com: {}
+  example.com:
+    records:
+    - domain: example.com
+      type: A
+      data: 15.204.14.203
+    - domain: ns1.example.com # redundant over glue records, but still advisable
+      type: A
+      data: 15.204.14.203

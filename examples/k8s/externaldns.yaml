@@ -1,0 +1,45 @@
+
+# `external-dns` only supports one zone per deployment for RFC2136.
+# To get around this, just create multiple independent deployments with different `domain-filter`, `rfc2136-zone`, and `txt-owner-id` 
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: external-dns
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: external-dns
+  namespace: external-dns
+  labels:
+    app.kubernetes.io/name: external-dns
+spec:
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: external-dns
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: external-dns
+    spec:
+      serviceAccountName: external-dns
+      containers:
+        - name: external-dns
+          image: registry.k8s.io/external-dns/external-dns:v0.13.5
+          args:
+            - --source=service
+            - --source=ingress
+            - --domain-filter=<my domain>
+            - --provider=rfc2136
+            - --rfc2136-host=<public IP address of adns server>
+            - --rfc2136-port=53
+            - --rfc2136-zone=<my domain>
+            - --rfc2136-tsig-secret=<TSIG secret>
+            - --rfc2136-tsig-secret-alg=hmac-sha256
+            - --rfc2136-tsig-keyname=<TSIG key name>
+            - --rfc2136-tsig-axfr
+            - --registry=txt
+            - --txt-owner-id=external-dns

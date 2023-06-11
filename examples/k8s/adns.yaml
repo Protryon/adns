@@ -1,0 +1,129 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: adns
+---
+# used for dyn zone
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: adns
+  namespace: adns
+spec:
+  volumeName: adns
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 128Mi
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: adns
+  namespace: adns
+  labels:
+    app: adns
+spec:
+  replicas: 1
+  serviceName: adns
+  selector:
+    matchLabels:
+      app: adns
+  template:
+    metadata:
+      labels:
+        app: adns
+    spec:
+      containers:
+      - name: adns
+        image: protryon/adns-server:0.1.0
+        imagePullPolicy: Always
+        env:
+        - name: ADNS_CONFIG
+          value: /runtime/config/config.yaml
+        ports:
+        - name: dns-tcp
+          containerPort: 53
+        - name: dns-udp
+          containerPort: 53
+          protocol: UDP
+        volumeMounts:
+        - mountPath: /runtime/config
+          name: config
+        - mountPath: /runtime/zone
+          name: zone
+        - mountPath: /runtime/dynamic
+          name: adns
+      volumes:
+        - name: config
+          configMap:
+            name: adns-config
+        - name: zone
+          configMap:
+            name: adns-zone
+        - name: adns
+          persistentVolumeClaim:
+            claimName: adns
+# example services using metallb. you could also use container hostPort instead of services if no LB configured
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adns-tcp
+  namespace: adns
+  labels:
+    app: adns
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: <MY IP>
+    metallb.universe.tf/allow-shared-ip: second
+spec:
+  type: LoadBalancer
+  selector:
+    app: adns
+  ports:
+    - protocol: TCP
+      port: 53
+      targetPort: 53
+      name: dns-tcp
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: adns-udp
+  namespace: adns
+  labels:
+    app: adns
+  annotations:
+    metallb.universe.tf/loadBalancerIPs: <MY IP>
+    metallb.universe.tf/allow-shared-ip: second
+spec:
+  type: LoadBalancer
+  selector:
+    app: adns
+  ports:
+    - protocol: UDP
+      port: 53
+      targetPort: 53
+      name: dns-udp
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adns-config
+  namespace: adns
+  labels:
+    app: adns
+data:
+  config.yaml: |
+    servers:
+    - udp_bind: 0.0.0.0:53
+      tcp_bind: 0.0.0.0:53
+      zone:
+        type: merge
+        top:
+          type: dyn_file
+          path: /runtime/dynamic/zone.yaml
+        bottom:
+          type: file
+          path: /runtime/zone/zone.yaml

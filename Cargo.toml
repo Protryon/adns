@@ -1,0 +1,10 @@
+[workspace]
+resolver = "2"
+members = [
+    "adns-proto",
+    "adns-zone",
+    "adns-client",
+    "adns-server",
+]
+
+[workspace.dependencies]

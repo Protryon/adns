@@ -1,0 +1,20 @@
+[package]
+name = "adns-zone"
+version = "0.1.0"
+edition = "2021"
+authors = ["Protryon <max.bruce12@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/protryon/adns"
+description = "ADNS Zone Library"
+keywords = [ "dns" ]
+readme = "../README.md"
+
+[features]
+
+[dependencies]
+adns-proto = { "path" = "../adns-proto", version = "0.1" }
+serde = { version = "1.0", features = ["derive"] }
+indexmap = { version = "1.9", features = ["serde"] }
+base64 = "0.21"
+serde_with = { version = "3.0.0", features = ["base64"] }
+log = "0.4"

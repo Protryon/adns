@@ -1,0 +1,11 @@
+---
+records: []
+zones:
+  test.com:
+    records:
+      - domain: west.test.com
+        type: A
+        data: 45.56.67.78
+tsig_keys:
+  test: dGVzdHRlc3R0ZXN0Cg==
+allow_md5_tsig: true

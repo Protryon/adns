@@ -1,0 +1,20 @@
+soa:
+  mname: ns1.example.com
+  rname: admin.example.com
+  serial: 1
+  refresh: 3600
+  retry: 10
+  expire: 3600
+  minimum: 60
+nameservers:
+- ns1.example.com
+zones:
+  example.com:
+    authoritative: true
+    records:
+    - domain: example.com
+      type: A
+      data: 123.12.12.12
+
+tsig_keys:
+  test: dGVzdHRlc3R0ZXN0Cg==

@@ -1,0 +1,33 @@
+[package]
+name = "adns-proto"
+version = "0.1.0"
+edition = "2021"
+authors = ["Protryon <max.bruce12@gmail.com>"]
+license = "Apache-2.0"
+repository = "https://github.com/protryon/adns"
+description = "ADNS Protocol Library"
+keywords = [ "dns" ]
+readme = "../README.md"
+
+[features]
+default = ["serde", "tsig"]
+serde = ["dep:serde", "smallvec/serde"]
+tsig = ["sha2", "sha1", "hmac", "constant_time_eq", "md-5"]
+
+[dependencies]
+smallvec = "1.10.0"
+strum = { version = "0.24", features = ["derive"] }
+thiserror = "1.0"
+hex = "0.4"
+serde = { version = "1.0", optional = true, features = ["derive"] }
+chrono = "0.4"
+
+sha2 = { version = "0.10.6", optional = true }
+sha1 = { version = "0.10.5", optional = true }
+hmac = { version = "0.12.1", optional = true }
+md-5 = { version = "0.10.5", optional = true }
+
+constant_time_eq = { version = "0.2.5", optional = true }
+
+[dev-dependencies]
+hex-literal = "0.4"

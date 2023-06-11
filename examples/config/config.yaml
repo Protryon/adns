@@ -1,0 +1,15 @@
+servers:
+# you can host multiple distinct servers from one daemon if needed
+- udp_bind: 0.0.0.0:53
+  tcp_bind: 0.0.0.0:53
+  zone:
+    # `merge` zones applies ALL records and zones from `top` over `bottom`. Updates are sent to `top` by default. This can be changed with `send_updates: to_bottom`
+    type: merge
+    top:
+      # `dyn_file` is the same as `file`, but will allow RFC2136/similar to alter the zone and persist changes to disk, overwriting the zone
+      type: dyn_file
+      path: /runtime/dynamic/zone.yaml
+    bottom:
+      # `file` will load the zone from a YAML file, and perform hot-reloading whenever changes are detected
+      type: file
+      path: /runtime/zone/zone.yaml

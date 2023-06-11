@@ -1,0 +1,6 @@
+server 127.0.0.1 5053
+zone test.com
+key test dGVzdHRlc3R0ZXN0Cg==
+update add west.test.com 300 A 45.56.67.78
+show
+send

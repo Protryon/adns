@@ -1,0 +1,34 @@
+# base zone that will get overwritten by dynamic DNS
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: adns-zone
+  namespace: adns
+  labels:
+    app: adns
+data:
+  zone.yaml: |
+    # all TSIG keys get access to AXFR & RFC2136 (dyndns) on all zones (pending permissions model)
+    tsig_keys:
+      local_cluster: <a base64 key>
+    # `soa` and `nameservers` can also be set in individual subzones. These will get inherited down as SOA and NS records otherwise
+    soa:
+      mname: ns1.example.com
+      rname: admin.example.com
+      serial: 1
+      refresh: 3600
+      retry: 10
+      expire: 3600
+      minimum: 60
+    nameservers:
+    - ns1.example.com # points to ourself
+    zones:
+      example.com:
+        records:
+        - domain: example.com
+          type: A
+          data: 15.204.14.203
+        - domain: ns1.example.com # redundant over glue records, but still advisable
+          type: A
+          data: 15.204.14.203
