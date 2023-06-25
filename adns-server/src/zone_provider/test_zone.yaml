@@ -18,3 +18,4 @@ zones:
 
 tsig_keys:
   test: dGVzdHRlc3R0ZXN0Cg==
+  

@@ -1,16 +1,10 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{path::PathBuf, time::Duration};
 
 use adns_zone::Zone;
 use log::{error, info};
-use notify::{
-    event::{AccessKind, AccessMode, ModifyKind, RemoveKind},
-    EventKind, RecursiveMode, Watcher,
-};
+use really_notify::FileWatcherConfig;
 use thiserror::Error;
-use tokio::{
-    select,
-    sync::{mpsc, oneshot, Notify},
-};
+use tokio::{select, sync::mpsc};
 
 use crate::{ZoneProvider, ZoneProviderUpdate};
 
@@ -39,32 +33,16 @@ impl ZoneProvider for FileZoneProvider {
         if sender.send(zone).await.is_err() {
             return;
         }
-        let notify = Arc::new(Notify::new());
-        loop {
-            match load_config(Arc::new(self.0.clone()), notify.clone()) {
-                Ok(()) => break,
-                Err(e) => {
-                    error!("failed to setup initial zone file watcher: {e} @ {}, retrying in one second", self.0.display());
-                    tokio::time::sleep(Duration::from_secs(1)).await;
-                }
-            }
-        }
+        let mut receiver = FileWatcherConfig::new(&self.0, "zone")
+            .with_parser(move |x| serde_yaml::from_slice(&x))
+            .start();
         loop {
             select! {
-                _ = notify.notified() => {
-                    let zone = loop {
-                        match self.read_config().await {
-                            Ok(x) => break x,
-                            Err(e) => {
-                                error!("failed to read zone file update: {e} @ {}, retrying in one second", self.0.display());
-                                tokio::time::sleep(Duration::from_secs(1)).await;
-                                let notify = notify.notified();
-                                futures::pin_mut!(notify);
-                                notify.enable();
-                            }
-                        }
+                update = receiver.recv() => {
+                    let Some(update) = update else {
+                        return;
                     };
-                    if sender.send(zone).await.is_err() {
+                    if sender.send(update).await.is_err() {
                         return;
                     }
                 },
@@ -82,8 +60,6 @@ pub enum FileZoneError {
     Io(#[from] std::io::Error),
     #[error("{0}")]
     Yaml(#[from] serde_yaml::Error),
-    #[error("{0}")]
-    Notify(#[from] notify::Error),
 }
 
 impl FileZoneProvider {
@@ -93,42 +69,6 @@ impl FileZoneProvider {
             &tokio::fs::read_to_string(&self.0).await?,
         )?)
     }
-}
-
-fn load_config(path: Arc<PathBuf>, sender: Arc<Notify>) -> Result<(), FileZoneError> {
-    let (watcher_sender, watcher_receiver) = oneshot::channel();
-    let mut watcher_receiver = Some(watcher_receiver);
-
-    let path_ref = path.clone();
-
-    let mut watcher =
-        notify::recommended_watcher(move |res: Result<notify::Event, notify::Error>| {
-            assert!(watcher_receiver.is_some());
-            match res {
-                Ok(event) => {
-                    match event.kind {
-                        EventKind::Access(AccessKind::Close(AccessMode::Write))
-                        | EventKind::Modify(ModifyKind::Name(_))
-                        | EventKind::Remove(RemoveKind::File) => (),
-                        _ => return,
-                    }
-                    sender.notify_one();
-                    watcher_receiver.take().unwrap().blocking_recv().ok();
-                    while let Err(e) = load_config(path.clone(), sender.clone()) {
-                        error!("failed to load config watcher: {e}, retrying in 1 second...");
-                        std::thread::sleep(Duration::from_secs(1));
-                        sender.notify_one();
-                    }
-                }
-                Err(e) => {
-                    error!("config watch error: {:?}", e);
-                }
-            }
-        })?;
-    watcher.watch(&path_ref, RecursiveMode::NonRecursive)?;
-    watcher_sender.send(watcher).ok();
-
-    Ok(())
 }
 
 #[cfg(test)]

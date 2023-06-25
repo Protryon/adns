@@ -1,6 +1,6 @@
 [package]
 name = "adns-server"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 authors = ["Protryon <max.bruce12@gmail.com>"]
 license = "Apache-2.0"
@@ -18,7 +18,7 @@ name = "adns-server"
 
 [features]
 default = ["file_zone"]
-file_zone = ["notify"]
+file_zone = ["really-notify"]
 
 [dependencies]
 log = "0.4"
@@ -31,7 +31,7 @@ arc-swap = "1.6"
 futures = "0.3"
 hex = "0.4"
 serde_yaml = { version = "0.8" }
-notify = { version = "5.1", optional = true }
+really-notify = { version = "0.1.0", optional = true }
 env_logger = "0.10.0"
 serde = { version = "1.0", features = ["derive"] }
 smallvec = "1.10.0"
