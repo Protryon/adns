@@ -187,7 +187,7 @@ impl Zone {
                     {
                         response
                             .answers
-                            .push(Record::new(zone_name, 0, TypeData::SOA(soa)));
+                            .push(Record::new(zone_name, 60, TypeData::SOA(soa)));
                     } else {
                         warn!("no SOA specified for zone {}", zone_name);
                     }

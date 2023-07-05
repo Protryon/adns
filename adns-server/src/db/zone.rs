@@ -303,10 +303,10 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
         match update {
             ZoneUpdateAction::DeleteRecords(name, None) => {
                 if name == &zone.domain {
-                    conn.execute(r"DELETE FROM records WHERE zone_id = $1 AND name = $2 AND dns_type != 'SOA' AND dns_type != 'NS'", &[&zone.id, &name.as_ref()]).await?;
+                    conn.execute(r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type != 'SOA' AND dns_type != 'NS'", &[&zone.id, &name.as_ref()]).await?;
                 } else {
                     conn.execute(
-                        r"DELETE FROM records WHERE zone_id = $1 AND name = $2",
+                        r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2",
                         &[&zone.id, &name.as_ref()],
                     )
                     .await?;
@@ -322,8 +322,8 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                 }
                 let type_str: &'static str = type_.into();
                 conn.execute(
-                    r"DELETE FROM records WHERE zone_id = $1 AND name = $2 AND dns_type = $3",
-                    &[&zone.id, &type_str],
+                    r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type = $3",
+                    &[&zone.id, &name.as_ref(), &type_str],
                 )
                 .await?;
             }
@@ -333,14 +333,14 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                         continue;
                     }
                     if data.dns_type() == Type::NS {
-                        let count: i64 = conn.query_one(r"SELECT count(1) FROM records WHERE zone_id = $1 AND dns_type = 'NS'", &[&zone.id]).await?.get(0);
+                        let count: i64 = conn.query_one(r"SELECT count(1) FROM zone_records WHERE zone_id = $1 AND dns_type = 'NS'", &[&zone.id]).await?.get(0);
                         if count <= 1 {
                             continue;
                         }
                     }
                 }
                 let type_str: &'static str = data.dns_type().into();
-                conn.execute(r"DELETE FROM records WHERE zone_id = $1 AND name = $2 AND dns_type = $3 AND data = $4 LIMIT 1", &[&zone.id, &type_str, &data.to_string()]).await?;
+                conn.execute(r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type = $3 AND data = $4 LIMIT 1", &[&zone.id, &name.as_ref(), &type_str, &data.to_string()]).await?;
             }
             ZoneUpdateAction::AddRecord(Record {
                 name,
@@ -349,6 +349,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                 ttl,
                 data,
             }) => {
+                let ttl = (*ttl).max(60);
                 let mut records = vec![];
                 for zone_record in conn.query(r"SELECT * FROM zone_records WHERE zone_id = $1 AND name = $2 ORDER BY ordering ASC", &[&zone.id, &name.as_ref()]).await? {
                     let zone_record: Result<ZoneRecord, _> = zone_record.try_into();
@@ -393,7 +394,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                 {
                     if *type_ == Type::CNAME || *type_ == Type::SOA || *data == zone_record.data {
                         // update
-                        zone_record.ttl = *ttl;
+                        zone_record.ttl = ttl;
                         zone_record.save(conn).await?;
                         continue 'outer;
                     }
@@ -403,7 +404,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                     ordering: 0,
                     name: name.clone(),
                     dns_type: *type_,
-                    ttl: *ttl,
+                    ttl,
                     data: data.clone(),
                 }
                 .insert_next_order(conn)

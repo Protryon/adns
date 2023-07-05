@@ -61,6 +61,8 @@ impl ZoneUpdateAction {
                 });
             }
             ZoneUpdateAction::AddRecord(record) => {
+                let mut record = record.clone();
+                record.ttl = record.ttl.max(60);
                 if record.type_ == Type::CNAME {
                     if zone.records.len() > 1
                         || zone
@@ -98,11 +100,11 @@ impl ZoneUpdateAction {
                         || record.type_ == Type::SOA
                         || record.data == zone_record.data
                     {
-                        *zone_record = record.clone();
+                        *zone_record = record;
                         return;
                     }
                 }
-                zone.records.push(record.clone());
+                zone.records.push(record);
             }
         }
     }
