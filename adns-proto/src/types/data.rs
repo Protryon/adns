@@ -23,6 +23,7 @@ pub enum TypeData {
         preference: u16,
         exchange: Name,
     },
+    /// while in theory, each argument here can be nul-terminated, in practice, most readers dont support it
     TXT(SmallVec<[String; 1]>),
 
     AAAA(Ipv6Addr),

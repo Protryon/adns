@@ -9,7 +9,6 @@ pub struct ZoneUpdate {
 }
 
 pub enum ZoneUpdateAction {
-    CreateZone(Name),
     DeleteRecords(Name, Option<Type>),
     DeleteRecord(Name, TypeData),
     AddRecord(Record),
@@ -104,9 +103,6 @@ impl ZoneUpdateAction {
                     }
                 }
                 zone.records.push(record.clone());
-            }
-            ZoneUpdateAction::CreateZone(name) => {
-                zone.zones.insert(name.clone(), Default::default());
             }
         }
     }

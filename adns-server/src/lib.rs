@@ -7,6 +7,9 @@ pub use zone_provider::*;
 mod metrics;
 pub use metrics::*;
 
+#[cfg(feature = "postgres")]
+pub mod db;
+
 #[cfg(test)]
 mod tests {
     use adns_proto::{Record, TypeData};

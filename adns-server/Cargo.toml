@@ -1,6 +1,6 @@
 [package]
 name = "adns-server"
-version = "0.1.1"
+version = "0.2.0"
 edition = "2021"
 authors = ["Protryon <max.bruce12@gmail.com>"]
 license = "Apache-2.0"
@@ -17,8 +17,9 @@ path = "./src/main.rs"
 name = "adns-server"
 
 [features]
-default = ["file_zone"]
+default = ["file_zone", "postgres"]
 file_zone = ["really-notify"]
+postgres = ["tokio-postgres",  "bb8", "bb8-postgres", "refinery"]
 
 [dependencies]
 log = "0.4"
@@ -39,5 +40,15 @@ prometheus = "0.13.3"
 prometheus_exporter = "0.8"
 lazy_static = "1.4"
 defer-lite = "1.0.0"
+chrono = "0.4"
+uuid = { version = "1.4", features = ["v4"] }
+base64 = "0.21"
+strum = { version = "0.24", features = ["derive"] }
+async-recursion = "1.0"
+
+tokio-postgres = { version = "0.7", features = ["with-chrono-0_4", "with-uuid-1"], optional = true}
+refinery = { version = "0.8", features = ["tokio-postgres"], optional = true }
+bb8 = { version = "0.8", optional = true }
+bb8-postgres = { version = "0.8", optional = true }
 
 [dev-dependencies]

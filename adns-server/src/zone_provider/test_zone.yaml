@@ -15,7 +15,7 @@ zones:
     - domain: example.com
       type: A
       data: 123.12.12.12
-
+allow_md5_tsig: true
 tsig_keys:
   test: dGVzdHRlc3R0ZXN0Cg==
   

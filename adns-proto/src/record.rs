@@ -62,7 +62,7 @@ impl Record {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, strum::IntoStaticStr)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Default, strum::IntoStaticStr, strum::EnumString)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(u16)]
 pub enum Class {

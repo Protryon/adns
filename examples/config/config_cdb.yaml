@@ -1,0 +1,16 @@
+servers:
+- udp_bind: 0.0.0.0:5053
+  tcp_bind: 0.0.0.0:5053
+  zone:
+    type: merge
+    top:
+      type: postgres
+      vendor: cockroach
+      host: 127.0.0.1
+      port: 26257
+      database: adns
+      username: adns
+      password: example
+    bottom:
+      type: file
+      path: /runtime/zone/zone.yaml

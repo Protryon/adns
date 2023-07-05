@@ -1,5 +1,6 @@
 use adns_server::Server;
 use config::Config;
+use log::error;
 
 mod config;
 
@@ -24,10 +25,17 @@ async fn main() {
     let mut servers = vec![];
     for server_config in config.servers {
         servers.push(tokio::spawn(async move {
+            let zone_provider = match server_config.zone.construct().await {
+                Ok(x) => x,
+                Err(e) => {
+                    error!("failed to init zone provider: {e}, dying...");
+                    std::process::exit(1);
+                }
+            };
             let server = Server::new(
                 server_config.udp_bind,
                 server_config.tcp_bind,
-                server_config.zone.construct(),
+                zone_provider,
             );
             server.run().await;
         }))

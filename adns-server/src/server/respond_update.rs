@@ -48,9 +48,6 @@ fn do_respond_update(from: &str, zone: &Zone, packet: &Packet) -> Result<ZoneUpd
         _ => match zone.zones.get(&question.name) {
             Some(zone) => (&question.name, zone),
             None => {
-                zone_update
-                    .actions
-                    .push(ZoneUpdateAction::CreateZone(question.name.clone()));
                 tzone = Zone::default();
                 (&question.name, &tzone)
             }

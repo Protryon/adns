@@ -6,6 +6,7 @@ use adns_server::{
 };
 use adns_zone::Zone;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 #[derive(Serialize, Deserialize)]
 pub struct Config {
@@ -38,11 +39,21 @@ pub enum ZoneProviderConfig {
         #[serde(default)]
         send_updates: SendUpdates,
     },
+    #[cfg(feature = "postgres")]
+    Postgres(adns_server::db::DbConfig),
+}
+
+#[derive(Error, Debug)]
+pub enum ZoneProviderInitError {
+    #[cfg(feature = "postgres")]
+    #[error("{0}")]
+    Postgres(#[from] adns_server::db::PostgresError),
 }
 
 impl ZoneProviderConfig {
-    pub fn construct(self) -> Box<dyn ZoneProvider> {
-        match self {
+    #[async_recursion::async_recursion]
+    pub async fn construct(self) -> Result<Box<dyn ZoneProvider>, ZoneProviderInitError> {
+        let provider: Box<dyn ZoneProvider> = match self {
             ZoneProviderConfig::Static { zone } => Box::new(StaticZoneProvider(zone)),
             ZoneProviderConfig::File { path } => Box::new(FileZoneProvider(path)),
             ZoneProviderConfig::DynFile { path } => Box::new(DynFileZoneProvider(path)),
@@ -51,10 +62,15 @@ impl ZoneProviderConfig {
                 bottom,
                 send_updates,
             } => Box::new(MergeZoneProvider::new(
-                top.construct(),
-                bottom.construct(),
+                top.construct().await?,
+                bottom.construct().await?,
                 send_updates,
             )),
-        }
+            #[cfg(feature = "postgres")]
+            ZoneProviderConfig::Postgres(config) => {
+                Box::new(adns_server::db::DbZoneProvider::new(&config).await?)
+            }
+        };
+        Ok(provider)
     }
 }

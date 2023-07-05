@@ -257,7 +257,7 @@ impl TypeData {
                     .ok_or(TypeDataParseError::MissingArgument)?
                     .parse()?,
             },
-            Type::TXT => TypeData::TXT(args.into()),
+            Type::TXT => TypeData::TXT(smallvec::smallvec![args.join(" ")]),
             Type::AAAA => TypeData::AAAA(first.parse()?),
             Type::LOC => TypeData::LOC {
                 version: first.parse()?,
