@@ -47,7 +47,7 @@ pub fn calculate(
     if data.len() < 2 {
         return Err(TsigError::MissingKey);
     }
-    let Some(key) = key_lookup(name.as_ref()) else {
+    let Some(key) = key_lookup(name.lowercased().as_ref()) else {
         return Err(TsigError::MissingKey);
     };
 
@@ -92,7 +92,7 @@ pub fn calculate(
     let out = context.finalize();
     buf.extend(out);
 
-    let calculated_mac = match tsig.algorithm.as_ref() {
+    let calculated_mac = match tsig.algorithm.raw() {
         "hmac-sha1" => {
             let mut mac = Hmac::<Sha1>::new_from_slice(&key).unwrap();
             mac.update(&buf);
@@ -235,83 +235,3 @@ pub fn validate(
         Ok(mac)
     }
 }
-
-// pub fn generate(key_lookup: impl FnOnce(&str) -> Option<Vec<u8>>, mut packet: Packet, request_mac: Option<&[u8]>) -> Result<Packet, TsigError> {
-//     let mut tsig = packet.additional_records.pop().ok_or(TsigError::MissingTsig)?;
-//     if tsig.type_ != Type::TSIG {
-//         return Err(TsigError::MissingTsig);
-//     }
-//     packet.header.additional_record_count -= 1;
-//     let TypeData::TSIG { algorithm, time_signed, fudge, mac, original_id, error, other_data } = &mut tsig.data else {
-//         return Err(TsigError::MissingTsig);
-//     };
-//     // if *time_signed == 0 {
-//     //     *time_signed = Utc::now().timestamp() as u32;
-//     // }
-//     // if *fudge == 0 {
-//     //     *fudge = 300;
-//     // }
-//     let new_id = packet.header.id;
-//     packet.header.id = *original_id;
-//     let Some(key) = key_lookup(tsig.name.as_ref()) else {
-//         return Err(TsigError::MissingKey);
-//     };
-
-//     let mut buf = packet.serialize(usize::MAX);
-
-//     if let Some(request_mac) = request_mac {
-//         let len = request_mac.len() as u16;
-//         let mut out = vec![];
-//         out.extend(len.to_be_bytes());
-//         out.extend(request_mac);
-//         buf.extend(out);
-//     }
-//     let mut context = SerializeContext::default();
-//     context.write_name(&tsig.name);
-//     context.wipe_compression();
-//     context.write_blob(255u16.to_be_bytes());
-//     context.write_blob(0u32.to_be_bytes());
-//     context.write_name(&algorithm);
-//     context.write_blob(&time_signed.to_be_bytes()[1..4]);
-//     context.write_blob(fudge.to_be_bytes());
-//     context.write_blob(error.to_be_bytes());
-//     context.write_blob((other_data.len() as u16).to_be_bytes());
-//     context.write_blob(&other_data);
-//     let out = context.finalize();
-//     buf.extend(out);
-
-//     let calculated_mac = match algorithm.as_ref() {
-//         "hmac-sha1" => {
-//             let mut mac = Hmac::<Sha1>::new_from_slice(&key)?;
-//             mac.update(&buf);
-//             mac.finalize().into_bytes().to_vec()
-//         },
-//         "hmac-sha224" => {
-//             let mut mac = Hmac::<Sha224>::new_from_slice(&key)?;
-//             mac.update(&buf);
-//             mac.finalize().into_bytes().to_vec()
-//         },
-//         "hmac-sha256" => {
-//             let mut mac = Hmac::<Sha256>::new_from_slice(&key)?;
-//             mac.update(&buf);
-//             mac.finalize().into_bytes().to_vec()
-//         },
-//         "hmac-sha384" => {
-//             let mut mac = Hmac::<Sha384>::new_from_slice(&key)?;
-//             mac.update(&buf);
-//             mac.finalize().into_bytes().to_vec()
-//         },
-//         "hmac-sha512" => {
-//             let mut mac = Hmac::<Sha512>::new_from_slice(&key)?;
-//             mac.update(&buf);
-//             mac.finalize().into_bytes().to_vec()
-//         },
-//         _ => return Err(TsigError::UnknownAlgorithm),
-//     };
-//     *mac = calculated_mac;
-
-//     packet.header.id = new_id;
-//     packet.additional_records.push(tsig);
-//     packet.header.additional_record_count += 1;
-//     Ok(packet)
-// }

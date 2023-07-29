@@ -139,7 +139,7 @@ mod tests {
         assert_eq!(packet.questions.len(), 1);
 
         let question = packet.questions.first().unwrap();
-        assert_eq!(question.name.as_ref(), "google.com");
+        assert_eq!(question.name, "google.com");
         assert_eq!(question.type_, Type::A);
         assert_eq!(question.class, Class::IN);
 
@@ -150,12 +150,12 @@ mod tests {
         assert_eq!(packet.answers.len(), 1);
 
         let question = packet.questions.first().unwrap();
-        assert_eq!(question.name.as_ref(), "google.com");
+        assert_eq!(question.name, "google.com");
         assert_eq!(question.type_, Type::A);
         assert_eq!(question.class, Class::IN);
 
         let answer = packet.answers.first().unwrap();
-        assert_eq!(answer.name.as_ref(), "google.com");
+        assert_eq!(answer.name, "google.com");
         assert_eq!(answer.type_, Type::A);
         assert_eq!(answer.class, Class::IN);
         assert_eq!(answer.data, TypeData::A("142.250.189.174".parse().unwrap()));

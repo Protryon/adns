@@ -34,7 +34,7 @@ impl DbZone {
         conn.execute(r"INSERT INTO zones (id, domain, authoritative, allow_md5_tsig) VALUES ($1, $2, $3, $4) ON CONFLICT (id) DO UPDATE SET
             domain = EXCLUDED.domain,
             authoritative = EXCLUDED.authoritative,
-            allow_md5_tsig = EXCLUDED.allow_md5_tsig", &[&self.id, &self.domain.as_ref(), &self.authoritative, &self.allow_md5_tsig]).await?;
+            allow_md5_tsig = EXCLUDED.allow_md5_tsig", &[&self.id, &self.domain.lowercased(), &self.authoritative, &self.allow_md5_tsig]).await?;
         Ok(())
     }
 }
@@ -135,13 +135,13 @@ impl ZoneRecord {
             name = EXCLUDED.name,
             dns_type = EXCLUDED.dns_type,
             ttl = EXCLUDED.ttl,
-            data = EXCLUDED.data", &[&self.zone_id, &self.ordering, &self.name.as_ref(), &type_str, &(self.ttl as i32), &self.data.to_string()]).await?;
+            data = EXCLUDED.data", &[&self.zone_id, &self.ordering, &self.name.lowercased(), &type_str, &(self.ttl as i32), &self.data.to_string()]).await?;
         Ok(())
     }
 
     pub async fn insert_next_order(&self, conn: &Conn) -> Result<(), PostgresError> {
         let type_str: &'static str = self.dns_type.into();
-        conn.execute(r"INSERT INTO zone_records (zone_id, ordering, name, dns_type, ttl, data) VALUES ($1, (SELECT coalesce(max(ordering), 0) FROM zone_records WHERE zone_id = $1) + 1, $2, $3, $4, $5)", &[&self.zone_id, &self.name.as_ref(), &type_str, &(self.ttl as i32), &self.data.to_string()]).await?;
+        conn.execute(r"INSERT INTO zone_records (zone_id, ordering, name, dns_type, ttl, data) VALUES ($1, (SELECT coalesce(max(ordering), 0) FROM zone_records WHERE zone_id = $1) + 1, $2, $3, $4, $5)", &[&self.zone_id, &self.name.lowercased(), &type_str, &(self.ttl as i32), &self.data.to_string()]).await?;
         Ok(())
     }
 }
@@ -248,7 +248,7 @@ pub async fn load_current_zone(conn: &mut Conn) -> Result<Zone, PostgresError> {
     txn.commit().await?;
     let root_zone_id = zones
         .iter()
-        .find(|x| x.1 .1.domain.as_ref().is_empty())
+        .find(|x| x.1 .1.domain.lowercased().is_empty())
         .map(|x| *x.0);
     let mut root_zone = root_zone_id
         .and_then(|x| zones.remove(&x))
@@ -280,7 +280,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
     let zone: Option<DbZone> = conn
         .query_opt(
             r"SELECT * FROM zones WHERE domain = $1",
-            &[&zone_update.zone_name.as_ref()],
+            &[&zone_update.zone_name.lowercased()],
         )
         .await?
         .map(|x| x.try_into())
@@ -303,11 +303,11 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
         match update {
             ZoneUpdateAction::DeleteRecords(name, None) => {
                 if name == &zone.domain {
-                    conn.execute(r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type != 'SOA' AND dns_type != 'NS'", &[&zone.id, &name.as_ref()]).await?;
+                    conn.execute(r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type != 'SOA' AND dns_type != 'NS'", &[&zone.id, &name.lowercased()]).await?;
                 } else {
                     conn.execute(
                         r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2",
-                        &[&zone.id, &name.as_ref()],
+                        &[&zone.id, &name.lowercased()],
                     )
                     .await?;
                 }
@@ -323,7 +323,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                 let type_str: &'static str = type_.into();
                 conn.execute(
                     r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type = $3",
-                    &[&zone.id, &name.as_ref(), &type_str],
+                    &[&zone.id, &name.lowercased(), &type_str],
                 )
                 .await?;
             }
@@ -340,7 +340,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                     }
                 }
                 let type_str: &'static str = data.dns_type().into();
-                conn.execute(r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type = $3 AND data = $4 LIMIT 1", &[&zone.id, &name.as_ref(), &type_str, &data.to_string()]).await?;
+                conn.execute(r"DELETE FROM zone_records WHERE zone_id = $1 AND name = $2 AND dns_type = $3 AND data = $4 LIMIT 1", &[&zone.id, &name.lowercased(), &type_str, &data.to_string()]).await?;
             }
             ZoneUpdateAction::AddRecord(Record {
                 name,
@@ -351,7 +351,7 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
             }) => {
                 let ttl = (*ttl).max(60);
                 let mut records = vec![];
-                for zone_record in conn.query(r"SELECT * FROM zone_records WHERE zone_id = $1 AND name = $2 ORDER BY ordering ASC", &[&zone.id, &name.as_ref()]).await? {
+                for zone_record in conn.query(r"SELECT * FROM zone_records WHERE zone_id = $1 AND name = $2 ORDER BY ordering ASC", &[&zone.id, &name.lowercased()]).await? {
                     let zone_record: Result<ZoneRecord, _> = zone_record.try_into();
                     match zone_record {
                         Ok(x) => {

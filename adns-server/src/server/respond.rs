@@ -22,9 +22,9 @@ struct QueryContext<'a> {
 impl<'a> QueryContext<'a> {
     fn query(&mut self) -> usize {
         let start = self.response.answers.len();
-        if self.question.name.as_ref() == "version.bind" && self.question.type_ == Type::TXT {
+        if self.question.name == "version.bind" && self.question.type_ == Type::TXT {
             self.response.answers.push(Record::new(
-                "version.bind",
+                "version.bind".parse().unwrap(),
                 3600,
                 TypeData::parse_str(Type::TXT, &format!("adns-{}", env!("CARGO_PKG_VERSION")))
                     .unwrap(),
@@ -143,7 +143,7 @@ fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet)
         metrics::QUESTIONS
             .with_label_values(&[
                 &from_str,
-                question.name.as_ref(),
+                question.name.raw(),
                 question.class.into(),
                 question.type_.into(),
             ])
@@ -238,7 +238,7 @@ fn respond_axfr(
     mut response: Packet,
     from: &str,
 ) -> SmallVec<[Packet; 1]> {
-    let zone = if axfr_name.as_ref().is_empty() {
+    let zone = if axfr_name.is_empty() {
         root_zone
     } else if let Some(zone) = root_zone.zones.get(axfr_name) {
         zone
@@ -387,7 +387,7 @@ pub async fn respond(
                 if tsig_info.is_none() || !is_tcp {
                     warn!("refused an AXFR");
                     metrics::AXFR
-                        .with_label_values(&[from, axfr_name.as_ref(), "false"])
+                        .with_label_values(&[from, axfr_name.raw(), "false"])
                         .inc();
                     response.header.response_code = ResponseCode::Refused;
                     return Some(PacketResponse {
@@ -396,7 +396,7 @@ pub async fn respond(
                     });
                 }
                 metrics::AXFR
-                    .with_label_values(&[from, axfr_name.as_ref(), "true"])
+                    .with_label_values(&[from, axfr_name.raw(), "true"])
                     .inc();
 
                 return Some(PacketResponse {
@@ -414,7 +414,7 @@ pub async fn respond(
                     metrics::UPDATES
                         .with_label_values(&[
                             from,
-                            update.name.as_ref(),
+                            update.name.raw(),
                             update.class.into(),
                             update.type_.into(),
                             "false",

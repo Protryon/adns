@@ -24,9 +24,9 @@ impl fmt::Display for Record {
 }
 
 impl Record {
-    pub fn new(name: impl AsRef<str>, ttl: u32, data: TypeData) -> Self {
+    pub fn new(name: Name, ttl: u32, data: TypeData) -> Self {
         Self {
-            name: name.as_ref().parse().unwrap(),
+            name,
             type_: data.dns_type(),
             class: Class::IN,
             ttl,

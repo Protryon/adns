@@ -19,7 +19,7 @@ impl<'a, 'b> PartialEq<MaybeConcat<'b>> for MaybeConcat<'a> {
                 for component in concat.iter().copied() {
                     if index != 0 {
                         if !unconcat
-                            .as_ref()
+                            .raw()
                             .get(index..index + 1)
                             .map(|x| x == ".")
                             .unwrap_or_default()
@@ -29,16 +29,16 @@ impl<'a, 'b> PartialEq<MaybeConcat<'b>> for MaybeConcat<'a> {
                         index += 1;
                     }
                     if !unconcat
-                        .as_ref()
+                        .raw()
                         .get(index..index + component.len())
-                        .map(|x| x == component)
+                        .map(|x| x.eq_ignore_ascii_case(component))
                         .unwrap_or_default()
                     {
                         return false;
                     }
                     index += component.len();
                 }
-                index == unconcat.as_ref().len()
+                index == unconcat.len()
             }
         }
     }

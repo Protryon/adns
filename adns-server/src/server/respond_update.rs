@@ -43,15 +43,16 @@ fn do_respond_update(from: &str, zone: &Zone, packet: &Packet) -> Result<ZoneUpd
 
     let tzone: Zone;
     let root_prefix = "**".parse().unwrap();
-    let (zone_prefix, zone) = match question.name.as_ref() {
-        "" => (&root_prefix, zone),
-        _ => match zone.zones.get(&question.name) {
+    let (zone_prefix, zone) = if question.name.is_empty() {
+        (&root_prefix, zone)
+    } else {
+        match zone.zones.get(&question.name) {
             Some(zone) => (&question.name, zone),
             None => {
                 tzone = Zone::default();
                 (&question.name, &tzone)
             }
-        },
+        }
     };
     //TODO: zone name auth??
 
@@ -67,8 +68,8 @@ fn do_respond_update(from: &str, zone: &Zone, packet: &Packet) -> Result<ZoneUpd
     for update in &packet.nameservers {
         write!(
             &mut out,
-            "\nupdate-> {} {} {} {}",
-            update.name, update.class, update.type_, update.data
+            "\nupdate-> {} {} {} {} {}",
+            update.name, update.ttl, update.class, update.type_, update.data
         )
         .unwrap();
     }
@@ -173,7 +174,7 @@ fn do_respond_update(from: &str, zone: &Zone, packet: &Packet) -> Result<ZoneUpd
         metrics::UPDATES
             .with_label_values(&[
                 &from_str,
-                update.name.as_ref(),
+                update.name.raw(),
                 update.class.into(),
                 update.type_.into(),
                 "true",

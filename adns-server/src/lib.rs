@@ -29,7 +29,7 @@ mod tests {
                 authoritative: false,
                 tsig_keys: Default::default(),
                 records: vec![Record::new(
-                    "example.com",
+                    "example.com".parse().unwrap(),
                     300,
                     TypeData::A("123.123.123.123".parse().unwrap()),
                 )],

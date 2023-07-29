@@ -135,8 +135,14 @@ impl Server {
                 let udp = udp.clone();
                 let updater = updater.clone();
                 tokio::spawn(async move {
-                    match respond::respond(false, &zone, &updater, &from.to_string(), &recv_buf)
-                        .await
+                    match respond::respond(
+                        false,
+                        &zone,
+                        &updater,
+                        &from.ip().to_string(),
+                        &recv_buf,
+                    )
+                    .await
                     {
                         Some(packet) => {
                             let serialized = packet.serialize(&zone, 512);
@@ -170,7 +176,9 @@ impl Server {
                 let zone = current_zone.load();
                 let updater = updater.clone();
                 tokio::spawn(async move {
-                    if let Err(e) = tcp_connection(client, updater, &from.to_string(), zone).await {
+                    if let Err(e) =
+                        tcp_connection(client, updater, &from.ip().to_string(), zone).await
+                    {
                         debug!("TCP connection error: {e}");
                     }
                 });

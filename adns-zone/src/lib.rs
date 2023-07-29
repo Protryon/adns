@@ -185,9 +185,11 @@ impl Zone {
                         .clone()
                         .or_else(|| parent_zone.and_then(|x| x.soa.clone()))
                     {
-                        response
-                            .answers
-                            .push(Record::new(zone_name, 60, TypeData::SOA(soa)));
+                        response.answers.push(Record::new(
+                            zone_name.clone(),
+                            60,
+                            TypeData::SOA(soa),
+                        ));
                     } else {
                         warn!("no SOA specified for zone {}", zone_name);
                     }
@@ -202,7 +204,7 @@ impl Zone {
                     };
                     for nameserver in nameservers {
                         response.answers.push(Record::new(
-                            zone_name,
+                            zone_name.clone(),
                             3600,
                             TypeData::NS(nameserver.clone()),
                         ));

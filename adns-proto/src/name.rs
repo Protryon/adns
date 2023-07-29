@@ -1,5 +1,7 @@
 use core::fmt;
 use std::{
+    borrow::Cow,
+    cmp::Ordering,
     hash::{Hash, Hasher},
     str::FromStr,
 };
@@ -30,27 +32,51 @@ impl<'de> serde::Deserialize<'de> for Name {
 
 impl PartialEq for Name {
     fn eq(&self, other: &Self) -> bool {
-        self.full == other.full
+        self.full.eq_ignore_ascii_case(&other.full)
+    }
+}
+
+impl PartialEq<str> for Name {
+    fn eq(&self, other: &str) -> bool {
+        self.full.eq_ignore_ascii_case(other)
+    }
+}
+
+impl PartialEq<&str> for Name {
+    fn eq(&self, other: &&str) -> bool {
+        self.full.eq_ignore_ascii_case(other)
     }
 }
 
 impl PartialOrd for Name {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
-        self.full.partial_cmp(&other.full)
+        let l = self.full.len().min(other.full.len());
+        let lhs = &self.full.as_bytes()[..l];
+        let rhs = &other.full.as_bytes()[..l];
+        for i in 0..l {
+            match lhs[i]
+                .to_ascii_lowercase()
+                .cmp(&rhs[i].to_ascii_lowercase())
+            {
+                Ordering::Equal => (),
+                non_eq => return Some(non_eq),
+            }
+        }
+        Some(self.full.len().cmp(&other.full.len()))
     }
 }
 
 impl Ord for Name {
     fn cmp(&self, other: &Self) -> std::cmp::Ordering {
-        self.full.cmp(&other.full)
+        self.partial_cmp(other).unwrap()
     }
 }
 
-impl AsRef<str> for Name {
-    fn as_ref(&self) -> &str {
-        &self.full
-    }
-}
+// impl AsRef<str> for Name {
+//     fn as_ref(&self) -> &str {
+//         &self.full
+//     }
+// }
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -60,7 +86,10 @@ impl fmt::Display for Name {
 
 impl Hash for Name {
     fn hash<H: Hasher>(&self, state: &mut H) {
-        self.full.hash(state);
+        for x in self.full.as_bytes() {
+            state.write_u8(x.to_ascii_lowercase());
+        }
+        state.write_u8(0xff);
     }
 }
 
@@ -91,15 +120,37 @@ impl FromStr for Name {
 }
 
 impl Name {
+    pub fn lowercased(&self) -> Cow<'_, str> {
+        let mut out = Cow::Borrowed(self.full.as_bytes());
+        for i in 0..out.len() {
+            if out[i].is_ascii_lowercase() {
+                out.to_mut()[i] = out[i] | 0x20;
+            }
+        }
+        unsafe { std::mem::transmute(out) }
+    }
+
+    pub fn raw(&self) -> &str {
+        &self.full
+    }
+
+    pub fn len(&self) -> usize {
+        self.full.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.full.is_empty()
+    }
+
     pub fn ends_with(&self, other: &Name) -> bool {
-        if self.full == other.full {
+        if self.full.eq_ignore_ascii_case(&other.full) {
             return true;
         }
         if self.segment_indices.len() < other.segment_indices.len() {
             return false;
         }
         for (self_segment, other_segment) in self.segments().rev().zip(other.segments().rev()) {
-            if self_segment != other_segment {
+            if !self_segment.eq_ignore_ascii_case(other_segment) {
                 return false;
             }
         }
@@ -108,7 +159,7 @@ impl Name {
 
     /// matches ** -> any number of segments (prefix only), *+ -> matches one or more segments, * -> any one segment, @ -> empty
     pub fn contains(&self, other: &Name) -> bool {
-        if self.full == other.full {
+        if self.full.eq_ignore_ascii_case(&other.full) {
             return true;
         }
 
@@ -121,7 +172,7 @@ impl Name {
                 return false;
             }
             for (other, ours) in other.segments().rev().zip(segments.rev()) {
-                if ours != "*" && other != ours {
+                if ours != "*" && !other.eq_ignore_ascii_case(ours) {
                     return false;
                 }
             }
@@ -131,7 +182,7 @@ impl Name {
                 return false;
             }
             for (other, ours) in other.segments().rev().zip(segments.rev()) {
-                if ours != "*" && other != ours {
+                if ours != "*" && !other.eq_ignore_ascii_case(ours) {
                     return false;
                 }
             }
@@ -140,7 +191,7 @@ impl Name {
                 return false;
             }
             for (other, ours) in other.segments().zip(segments) {
-                if ours != "*" && other != ours {
+                if ours != "*" && !other.eq_ignore_ascii_case(ours) {
                     return false;
                 }
             }
@@ -176,7 +227,6 @@ impl Name {
         }
         let start = self.full.len();
         self.full.push_str(segment);
-        self.full[start..].make_ascii_lowercase();
         if self.full.len() > 255 {
             return Err(NameParseError::NameTooLong);
         }

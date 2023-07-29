@@ -16,7 +16,7 @@ pub enum ZoneUpdateAction {
 
 impl ZoneUpdate {
     pub fn apply_to(&self, root_zone: &mut Zone) {
-        let zone = if self.zone_name.as_ref().is_empty() {
+        let zone = if self.zone_name.is_empty() {
             root_zone
         } else {
             root_zone.zones.entry(self.zone_name.clone()).or_default()
