@@ -27,7 +27,7 @@ pub enum DnsQueryError {
 impl DnsClient {
     pub async fn new() -> Result<Self, DnsQueryError> {
         Ok(Self {
-            udp: UdpSocket::bind("0.0.0.0:0".parse::<SocketAddr>().unwrap()).await?,
+            udp: UdpSocket::bind("[::]:0".parse::<SocketAddr>().unwrap()).await?,
         })
     }
 
