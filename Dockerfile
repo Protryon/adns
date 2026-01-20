@@ -1,4 +1,4 @@
-FROM lukemathwalker/cargo-chef:0.1.61-rust-1.70-slim-buster AS planner
+FROM lukemathwalker/cargo-chef:0.1.73-rust-1.92-trixie AS planner
 WORKDIR /plan
 
 COPY ./adns-server ./adns-server
@@ -10,7 +10,7 @@ COPY ./Cargo.toml .
 
 RUN cargo chef prepare --recipe-path recipe.json
 
-FROM lukemathwalker/cargo-chef:0.1.61-rust-1.70-buster AS builder
+FROM lukemathwalker/cargo-chef:0.1.73-rust-1.92-trixie AS builder
 
 WORKDIR /build
 RUN apt-get update && apt-get install cmake -y
@@ -28,11 +28,11 @@ COPY ./Cargo.toml .
 
 RUN cargo build --release -p adns-server && mv /build/target/release/adns-server /build/target/adns-server
 
-FROM debian:buster-slim
+FROM debian:trixie-slim
 WORKDIR /runtime
 
 COPY --from=builder /build/target/adns-server /runtime/adns-server
 
-RUN apt-get update && apt-get install libssl1.1 ca-certificates -y && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install libssl3 ca-certificates -y && rm -rf /var/lib/apt/lists/*
 
 ENTRYPOINT ["/runtime/adns-server"]

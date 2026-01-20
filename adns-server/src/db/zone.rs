@@ -375,7 +375,10 @@ pub async fn apply_update(conn: &mut Conn, zone_update: &ZoneUpdate) -> Result<(
                     continue;
                 }
                 if *type_ == Type::SOA {
-                    let TypeData::SOA(SoaData { serial: new_serial, .. }) = &data else {
+                    let TypeData::SOA(SoaData {
+                        serial: new_serial, ..
+                    }) = &data
+                    else {
                         continue;
                     };
                     if let Some(ZoneRecord {

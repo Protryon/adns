@@ -71,6 +71,8 @@ async fn tcp_connection(
     }
 }
 
+pub const UDP_PAYLOAD_SIZE: usize = 1232;
+
 impl Server {
     pub fn new(
         udp_bind: SocketAddr,
@@ -122,7 +124,7 @@ impl Server {
         let updater = self.update_sender.clone();
         futures.push(tokio::spawn(async move {
             loop {
-                let mut recv_buf = vec![0u8; 512];
+                let mut recv_buf = vec![0u8; UDP_PAYLOAD_SIZE];
                 let (size, from) = match udp.recv_from(&mut recv_buf[..]).await {
                     Ok(x) => x,
                     Err(e) => {
@@ -145,7 +147,8 @@ impl Server {
                     .await
                     {
                         Some(packet) => {
-                            let serialized = packet.serialize(&zone, 512);
+                            let max_size = UDP_PAYLOAD_SIZE.min(packet.udp_max_size);
+                            let serialized = packet.serialize(&zone, max_size);
                             if serialized.len() != 1 {
                                 error!("cannot send more than one packet for udp!");
                                 return;

@@ -199,6 +199,11 @@ impl fmt::Display for TypeData {
                 write!(f, "{} {} {}", priority, weight, target)?;
             }
             TypeData::Other(_, x) => write!(f, "{}", hex::encode(x))?,
+            TypeData::OPT(opt_data) => {
+                for x in &opt_data.items {
+                    write!(f, "{} {} bytes / ", x.code, x.data.len())?;
+                }
+            }
         }
         Ok(())
     }

@@ -67,6 +67,8 @@ pub enum TypeData {
         target: String,
     },
 
+    OPT(OptData),
+
     Other(Type, SmallVec<[u8; 32]>),
 }
 
@@ -92,6 +94,19 @@ pub struct TsigData {
     pub original_id: u16,
     pub error: TsigResponseCode,
     pub other_data: Vec<u8>,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct OptData {
+    pub items: Vec<OptItem>,
+}
+
+#[derive(Clone, PartialEq, Eq, Debug, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct OptItem {
+    pub code: u16,
+    pub data: SmallVec<[u8; 32]>,
 }
 
 #[derive(Default, Clone, Copy, PartialEq, Eq, Debug, PartialOrd, Ord)]
@@ -149,6 +164,7 @@ impl TypeData {
             TypeData::SSHFP { .. } => Type::SSHFP,
             TypeData::TSIG { .. } => Type::TSIG,
             TypeData::URI { .. } => Type::URI,
+            TypeData::OPT { .. } => Type::OPT,
             TypeData::Other(type_, ..) => *type_,
         }
     }
@@ -269,6 +285,13 @@ impl TypeData {
                 context.write_blob(weight.to_be_bytes());
                 context.write_blob(target);
             }
+            TypeData::OPT(data) => {
+                for item in &data.items {
+                    context.write_blob(item.code.to_be_bytes());
+                    context.write_blob((item.data.len() as u16).to_be_bytes());
+                    context.write_blob(&item.data);
+                }
+            }
             TypeData::Other(_, x) => context.write_blob(x),
         }
     }
@@ -356,7 +379,7 @@ impl TypeData {
                 },
                 fudge: context.read(u16::from_be_bytes)?,
                 mac: {
-                    let len = context.read(u16::from_be_bytes)?;
+                    let len: u16 = context.read(u16::from_be_bytes)?;
                     let mut out = vec![0u8; len as usize];
                     context.read_all(&mut out)?;
                     out
@@ -367,7 +390,7 @@ impl TypeData {
                     if context.remaining() == 0 {
                         vec![]
                     } else {
-                        let len = context.read(u16::from_be_bytes)?;
+                        let len: u16 = context.read(u16::from_be_bytes)?;
                         let mut out = vec![0u8; len as usize];
                         context.read_all(&mut out)?;
                         out
@@ -383,6 +406,21 @@ impl TypeData {
                     String::from_utf8(out).map_err(|e| e.utf8_error())?
                 },
             },
+            Type::OPT => {
+                let mut out = OptData { items: vec![] };
+                while let Ok(code) = context.read(u16::from_be_bytes) {
+                    out.items.push(OptItem {
+                        code,
+                        data: {
+                            let size: u16 = context.read(u16::from_be_bytes)?;
+                            let mut all = smallvec![0u8; size as usize];
+                            context.read_all(&mut all)?;
+                            all
+                        },
+                    });
+                }
+                TypeData::OPT(out)
+            }
             type_ => {
                 let mut all = smallvec![0u8; context.remaining()];
                 context.read_all(&mut all)?;

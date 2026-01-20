@@ -11,7 +11,12 @@ pub enum MaybeConcat<'a> {
 impl<'a, 'b> PartialEq<MaybeConcat<'b>> for MaybeConcat<'a> {
     fn eq(&self, other: &MaybeConcat<'b>) -> bool {
         match (self, other) {
-            (MaybeConcat::Concat(x), MaybeConcat::Concat(y)) => x == y,
+            (MaybeConcat::Concat(x), MaybeConcat::Concat(y)) => {
+                x.len() == y.len()
+                    && x.iter()
+                        .zip(y.iter())
+                        .all(|(x, y)| x.eq_ignore_ascii_case(y))
+            }
             (MaybeConcat::UnConcat(x), MaybeConcat::UnConcat(y)) => x == y,
             (MaybeConcat::UnConcat(unconcat), MaybeConcat::Concat(concat))
             | (MaybeConcat::Concat(concat), MaybeConcat::UnConcat(unconcat)) => {
@@ -50,13 +55,17 @@ impl<'a> Hash for MaybeConcat<'a> {
             MaybeConcat::Concat(components) => {
                 for component in components.iter() {
                     state.write_u8(component.len() as u8);
-                    state.write(component.as_bytes());
+                    for b in component.as_bytes() {
+                        state.write_u8(b.to_ascii_lowercase());
+                    }
                 }
             }
             MaybeConcat::UnConcat(name) => {
                 for segment in name.segments() {
                     state.write_u8(segment.len() as u8);
-                    state.write(segment.as_bytes());
+                    for b in segment.as_bytes() {
+                        state.write_u8(b.to_ascii_lowercase());
+                    }
                 }
             }
         }
@@ -82,6 +91,10 @@ mod tests {
             MaybeConcat::UnConcat("test.com".parse().unwrap())
         );
         assert_eq!(
+            MaybeConcat::Concat(&["tEst", "com"]),
+            MaybeConcat::UnConcat("test.cOm".parse().unwrap())
+        );
+        assert_eq!(
             MaybeConcat::Concat(&["test"]),
             MaybeConcat::UnConcat("test".parse().unwrap())
         );
@@ -93,6 +106,10 @@ mod tests {
         assert_eq!(
             hash(&MaybeConcat::Concat(&["test", "com"])),
             hash(&MaybeConcat::UnConcat("test.com".parse().unwrap()))
+        );
+        assert_eq!(
+            hash(&MaybeConcat::Concat(&["tEst", "com"])),
+            hash(&MaybeConcat::UnConcat("test.cOm".parse().unwrap()))
         );
         assert_eq!(
             hash(&MaybeConcat::Concat(&["test"])),

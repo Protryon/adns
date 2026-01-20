@@ -175,44 +175,45 @@ impl Zone {
         zone_name: &Name,
         question: &Question,
         response: &mut ZoneAnswer,
+        is_internal_soa: bool,
     ) -> AnswerState {
         response.is_authoritative = self.authoritative;
-        if &question.name == zone_name {
-            match question.type_ {
-                Type::SOA => {
-                    if let Some(soa) = self
-                        .soa
-                        .clone()
-                        .or_else(|| parent_zone.and_then(|x| x.soa.clone()))
-                    {
-                        response.answers.push(Record::new(
-                            zone_name.clone(),
-                            60,
-                            TypeData::SOA(soa),
-                        ));
-                    } else {
-                        warn!("no SOA specified for zone {}", zone_name);
-                    }
-                    return AnswerState::DomainSeen;
-                }
-                Type::NS => {
-                    #[allow(clippy::unnecessary_unwrap)]
-                    let nameservers = if self.nameservers.is_empty() && parent_zone.is_some() {
-                        &parent_zone.unwrap().nameservers
-                    } else {
-                        &self.nameservers
-                    };
-                    for nameserver in nameservers {
-                        response.answers.push(Record::new(
-                            zone_name.clone(),
-                            3600,
-                            TypeData::NS(nameserver.clone()),
-                        ));
-                    }
-                    return AnswerState::DomainSeen;
-                }
-                _ => (),
+        if &question.name == zone_name && question.type_ == Type::NS {
+            #[allow(clippy::unnecessary_unwrap)]
+            let nameservers = if self.nameservers.is_empty() && parent_zone.is_some() {
+                &parent_zone.unwrap().nameservers
+            } else {
+                &self.nameservers
+            };
+            for nameserver in nameservers {
+                response.answers.push(Record::new(
+                    zone_name.clone(),
+                    3600,
+                    TypeData::NS(nameserver.clone()),
+                ));
             }
+            return AnswerState::DomainSeen;
+        }
+        if question.type_ == Type::SOA
+            && (&question.name == zone_name
+                || (is_internal_soa
+                    && self
+                        .zones
+                        .iter()
+                        .all(|(name, _)| !question.name.ends_with(name))))
+        {
+            if let Some(soa) = self
+                .soa
+                .clone()
+                .or_else(|| parent_zone.and_then(|x| x.soa.clone()))
+            {
+                response
+                    .answers
+                    .push(Record::new(zone_name.clone(), 60, TypeData::SOA(soa)));
+            } else {
+                warn!("no SOA specified for zone {}", zone_name);
+            }
+            return AnswerState::DomainSeen;
         }
         let mut state = AnswerState::None;
         for record in &self.records {
@@ -235,7 +236,7 @@ impl Zone {
             if !question.name.ends_with(name) {
                 continue;
             }
-            let substate = zone.answer(Some(self), name, question, response);
+            let substate = zone.answer(Some(self), name, question, response, is_internal_soa);
             if substate > state {
                 state = substate;
             }

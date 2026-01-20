@@ -2,8 +2,8 @@ use std::{fmt::Write, time::Instant};
 
 use adns_proto::{
     tsig::{self, TsigError, TsigMode},
-    Class, Header, Name, Opcode, Packet, QueryResponse, Question, Record, ResponseCode, Type,
-    TypeData, ValidatableTsig,
+    Class, Header, Name, Opcode, OptData, Packet, QueryResponse, Question, Record, ResponseCode,
+    Type, TypeData, ValidatableTsig,
 };
 use adns_zone::{AnswerState, Zone, ZoneAnswer};
 use log::{info, warn};
@@ -17,6 +17,7 @@ struct QueryContext<'a> {
     question: &'a Question,
     response: &'a mut ZoneAnswer,
     state: &'a mut AnswerState,
+    is_internal_soa: bool,
 }
 
 impl<'a> QueryContext<'a> {
@@ -32,9 +33,13 @@ impl<'a> QueryContext<'a> {
             *self.state = AnswerState::DomainSeen;
             return self.response.answers.len() - start;
         }
-        let substate = self
-            .zone
-            .answer(None, &Name::default(), self.question, self.response);
+        let substate = self.zone.answer(
+            None,
+            &Name::default(),
+            self.question,
+            self.response,
+            self.is_internal_soa,
+        );
         if substate > *self.state {
             *self.state = substate;
         }
@@ -46,6 +51,7 @@ impl<'a> QueryContext<'a> {
                 question: &question,
                 response: self.response,
                 state: self.state,
+                is_internal_soa: false,
             }
             .query();
         }
@@ -91,6 +97,7 @@ struct TsigInfo {
 pub struct PacketResponse {
     packet: SmallVec<[Packet; 1]>,
     tsig_info: Option<TsigInfo>,
+    pub udp_max_size: usize,
 }
 
 impl PacketResponse {
@@ -126,15 +133,6 @@ impl PacketResponse {
     }
 }
 
-impl From<Packet> for PacketResponse {
-    fn from(packet: Packet) -> Self {
-        PacketResponse {
-            packet: smallvec![packet],
-            tsig_info: None,
-        }
-    }
-}
-
 fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet) -> Option<Packet> {
     response.questions = packet.questions.clone();
     let mut state = AnswerState::None;
@@ -154,6 +152,7 @@ fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet)
             question,
             response: &mut answer,
             state: &mut state,
+            is_internal_soa: false,
         }
         .query();
         if answer.is_authoritative {
@@ -182,6 +181,7 @@ fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet)
             question: &question,
             response: &mut answer,
             state: &mut state,
+            is_internal_soa: false,
         }
         .query();
         if answer.is_authoritative {
@@ -190,10 +190,7 @@ fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet)
         log_query(from, &packet.header, &question, &answer.answers);
         response.additional_records.extend(answer.answers);
     }
-    if response.header.is_authoritative
-        && response.answers.is_empty()
-        && state == AnswerState::DomainSeen
-    {
+    if response.header.is_authoritative && response.answers.is_empty() {
         let mut answer = ZoneAnswer::default();
         for question in &packet.questions {
             let new_question = Question {
@@ -206,6 +203,7 @@ fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet)
                 question: &new_question,
                 response: &mut answer,
                 state: &mut state,
+                is_internal_soa: true,
             }
             .query();
             if !answer.answers.is_empty() {
@@ -258,6 +256,7 @@ fn respond_axfr(
         question: &soa_question,
         response: &mut answer,
         state: &mut state,
+        is_internal_soa: false,
     }
     .query();
     let Some(soa) = answer.answers.pop() else {
@@ -316,6 +315,12 @@ pub async fn respond(
         }
     };
 
+    let opt_record = packet
+        .additional_records
+        .iter()
+        .find(|x| x.type_ == Type::OPT);
+    let udp_max_size = opt_record.map(|x| x.class.into()).unwrap_or(512u16) as usize;
+
     let mut response = Packet {
         header: Header {
             id: packet.header.id,
@@ -332,11 +337,46 @@ pub async fn respond(
         ..Default::default()
     };
 
+    if let Some(opt) = opt_record {
+        if opt.name != "" {
+            // error for non-root name?
+        }
+        let ttl_bytes = opt.ttl.to_be_bytes();
+        // let extended_rcode = ttl_bytes[0];
+        let version = ttl_bytes[1];
+
+        let mut edns_response = Record {
+            name: "".parse().unwrap(),
+            type_: Type::OPT,
+            class: Class::Other(udp_max_size.try_into().unwrap()),
+            ttl: 0,
+            data: TypeData::OPT(OptData { items: vec![] }),
+        };
+
+        if version != 0 {
+            // response.header.response_code = ResponseCode::
+            // extended rcode 16 BADVERS
+            edns_response.ttl = u32::from_be_bytes([1, 0, 0, 0]);
+            response.additional_records.push(edns_response);
+            return Some(PacketResponse {
+                packet: smallvec![response],
+                tsig_info: None,
+                udp_max_size,
+            });
+        }
+        // there is a dns_sec OK bit but we don't care right now
+        response.additional_records.push(edns_response);
+    }
+
     if packet.header.query_response != QueryResponse::Query
         || packet.header.response_code != ResponseCode::NoError
     {
         response.header.response_code = ResponseCode::NotImplemented;
-        return Some(response.into());
+        return Some(PacketResponse {
+            packet: smallvec![response],
+            tsig_info: None,
+            udp_max_size,
+        });
     }
     if packet.header.is_truncated {
         return None;
@@ -374,7 +414,11 @@ pub async fn respond(
                 warn!("TSIG validation error: {e:?}");
                 response.additional_records.push(e.to_record(name, tsig));
                 response.header.response_code = ResponseCode::NotAuth;
-                return Some(response.into());
+                return Some(PacketResponse {
+                    packet: smallvec![response],
+                    tsig_info: None,
+                    udp_max_size,
+                });
             }
         }
     } else {
@@ -393,6 +437,7 @@ pub async fn respond(
                     return Some(PacketResponse {
                         packet: smallvec![response],
                         tsig_info,
+                        udp_max_size,
                     });
                 }
                 metrics::AXFR
@@ -402,6 +447,7 @@ pub async fn respond(
                 return Some(PacketResponse {
                     packet: respond_axfr(zone, axfr_name, response, from),
                     tsig_info,
+                    udp_max_size,
                 });
             }
             respond_query(from, zone, &packet, response)?
@@ -421,7 +467,11 @@ pub async fn respond(
                         ])
                         .inc();
                 }
-                return Some(response.into());
+                return Some(PacketResponse {
+                    packet: smallvec![response],
+                    tsig_info: None,
+                    udp_max_size,
+                });
             }
 
             match super::respond_update::respond_update(from, zone, &packet, response) {
@@ -458,5 +508,6 @@ pub async fn respond(
     Some(PacketResponse {
         packet: smallvec![response],
         tsig_info,
+        udp_max_size,
     })
 }

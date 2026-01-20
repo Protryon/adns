@@ -12,10 +12,6 @@ readme = "../README.md"
 [lib]
 path = "./src/lib.rs"
 
-[[bin]]
-path = "./src/main.rs"
-name = "adns-server"
-
 [features]
 default = ["file_zone", "postgres"]
 file_zone = ["really-notify"]

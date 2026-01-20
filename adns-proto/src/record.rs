@@ -43,7 +43,7 @@ impl Record {
             class: context.read(u16::from_be_bytes)?.into(),
             ttl: context.read(u32::from_be_bytes)?,
             data: {
-                let length = context.read(u16::from_be_bytes)?;
+                let length: u16 = context.read(u16::from_be_bytes)?;
                 context.restrict(length as usize, |context| {
                     Ok(TypeData::parse_infallible(context, type_))
                 })?

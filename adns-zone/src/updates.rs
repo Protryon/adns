@@ -77,7 +77,14 @@ impl ZoneUpdateAction {
                     return;
                 }
                 if record.type_ == Type::SOA {
-                    let Record { data: TypeData::SOA(SoaData { serial: new_serial, .. }), .. } = &record else {
+                    let Record {
+                        data:
+                            TypeData::SOA(SoaData {
+                                serial: new_serial, ..
+                            }),
+                        ..
+                    } = &record
+                    else {
                         return;
                     };
                     if let Some(Record {
