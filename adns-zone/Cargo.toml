@@ -1,6 +1,6 @@
 [package]
 name = "adns-zone"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["Protryon <max.bruce12@gmail.com>"]
 license = "Apache-2.0"
@@ -12,7 +12,7 @@ readme = "../README.md"
 [features]
 
 [dependencies]
-adns-proto = { "path" = "../adns-proto", version = "0.1" }
+adns-proto = { "path" = "../adns-proto", version = "0.2" }
 serde = { version = "1.0", features = ["derive"] }
 indexmap = { version = "1.9", features = ["serde"] }
 base64 = "0.21"

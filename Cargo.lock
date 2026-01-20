@@ -14,7 +14,7 @@ dependencies = [
 
 [[package]]
 name = "adns-proto"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "chrono",
  "constant_time_eq",
@@ -32,7 +32,7 @@ dependencies = [
 
 [[package]]
 name = "adns-server"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "adns-proto",
  "adns-zone",
@@ -65,7 +65,7 @@ dependencies = [
 
 [[package]]
 name = "adns-zone"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "adns-proto",
  "base64 0.21.7",

@@ -29,7 +29,7 @@ async fn tcp_transaction(
     from: &str,
     zone: &Zone,
 ) -> Result<(), std::io::Error> {
-    let len = client.read_u16().await?;
+    let len: u16 = client.read_u16().await?;
     let mut response = vec![0u8; len as usize];
     client.read_exact(&mut response).await?;
     if let Some(response) = respond::respond(true, zone, updater, from, &response).await {

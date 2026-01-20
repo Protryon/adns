@@ -1,6 +1,6 @@
 [package]
 name = "adns-server"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["Protryon <max.bruce12@gmail.com>"]
 license = "Apache-2.0"
@@ -19,8 +19,8 @@ postgres = ["tokio-postgres",  "bb8", "bb8-postgres", "refinery"]
 
 [dependencies]
 log = "0.4"
-adns-proto = { "path" = "../adns-proto", version = "0.1" }
-adns-zone = { "path" = "../adns-zone", version = "0.1" }
+adns-proto = { "path" = "../adns-proto", version = "0.2" }
+adns-zone = { "path" = "../adns-zone", version = "0.2" }
 tokio = { "version" = "1", features = ["full"] }
 thiserror = "1.0"
 async-trait = "0.1"
