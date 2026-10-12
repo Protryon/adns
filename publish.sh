@@ -10,8 +10,6 @@ fi
 
 export TAG=$1
 
-docker build -t protryon/adns-server:$TAG -f ./Dockerfile .
-docker push protryon/adns-server:$TAG
-docker image rm protryon/adns-server:$TAG
+docker buildx build --platform linux/amd64,linux/arm64 -t protryon/adns-server:$TAG -f ./Dockerfile --push .
 
 echo "Uploaded image protryon/adns-server:$TAG"
