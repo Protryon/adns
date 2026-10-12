@@ -136,15 +136,9 @@ impl PacketResponse {
 fn respond_query(from: &str, zone: &Zone, packet: &Packet, mut response: Packet) -> Option<Packet> {
     response.questions = packet.questions.clone();
     let mut state = AnswerState::None;
-    let from_str = from.to_string();
     for question in &packet.questions {
         metrics::QUESTIONS
-            .with_label_values(&[
-                &from_str,
-                question.name.raw(),
-                question.class.into(),
-                question.type_.into(),
-            ])
+            .with_label_values(&[question.class.into(), question.type_.into()])
             .inc();
         let mut answer = ZoneAnswer::default();
         QueryContext {
@@ -305,7 +299,7 @@ pub async fn respond(
         let elapsed = start.elapsed().as_secs_f64() / 1000000.0;
         metrics::QUERY_US.with_label_values(&[]).observe(elapsed);
     }
-    metrics::QUERY.with_label_values(&[from]).inc();
+    metrics::QUERY.with_label_values(&[]).inc();
     let (packet, tsig_validatable) = match Packet::parse(packet) {
         Ok(x) => x,
         Err(e) => {
@@ -430,9 +424,7 @@ pub async fn respond(
             if let Some(axfr_name) = axfr(&packet) {
                 if tsig_info.is_none() || !is_tcp {
                     warn!("refused an AXFR");
-                    metrics::AXFR
-                        .with_label_values(&[from, axfr_name.raw(), "false"])
-                        .inc();
+                    metrics::AXFR.with_label_values(&["false"]).inc();
                     response.header.response_code = ResponseCode::Refused;
                     return Some(PacketResponse {
                         packet: smallvec![response],
@@ -440,9 +432,7 @@ pub async fn respond(
                         udp_max_size,
                     });
                 }
-                metrics::AXFR
-                    .with_label_values(&[from, axfr_name.raw(), "true"])
-                    .inc();
+                metrics::AXFR.with_label_values(&["true"]).inc();
 
                 return Some(PacketResponse {
                     packet: respond_axfr(zone, axfr_name, response, from),
@@ -458,13 +448,7 @@ pub async fn respond(
                 response.header.response_code = ResponseCode::Refused;
                 for update in &packet.nameservers {
                     metrics::UPDATES
-                        .with_label_values(&[
-                            from,
-                            update.name.raw(),
-                            update.class.into(),
-                            update.type_.into(),
-                            "false",
-                        ])
+                        .with_label_values(&[update.class.into(), update.type_.into(), "false"])
                         .inc();
                 }
                 return Some(PacketResponse {

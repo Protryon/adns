@@ -48,9 +48,9 @@ async fn tcp_connection(
     from: &str,
     zone: Guard<Arc<Zone>>,
 ) -> Result<(), std::io::Error> {
-    metrics::TCP_CONNECTIONS.with_label_values(&[from]).inc();
+    metrics::TCP_CONNECTIONS.with_label_values(&[]).inc();
     defer_lite::defer! {
-        metrics::TCP_CONNECTIONS.with_label_values(&[from]).dec();
+        metrics::TCP_CONNECTIONS.with_label_values(&[]).dec();
     };
     loop {
         match tokio::time::timeout(

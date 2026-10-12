@@ -168,17 +168,10 @@ fn do_respond_update(from: &str, zone: &Zone, packet: &Packet) -> Result<ZoneUpd
         }
     }
 
-    let from_str = from.to_string();
     // do update
     for update in &packet.nameservers {
         metrics::UPDATES
-            .with_label_values(&[
-                &from_str,
-                update.name.raw(),
-                update.class.into(),
-                update.type_.into(),
-                "true",
-            ])
+            .with_label_values(&[update.class.into(), update.type_.into(), "true"])
             .inc();
         match update.class {
             c if c == zone.class => {
